@@ -34,13 +34,25 @@ treeJSON = d3.json("flare.json", function(error, treeData) {
     // variables for drag/drop
     var selectedNode = null;
     var draggingNode = null;
+    var dragEnabled = false;
     // panning variables
     var panSpeed = 200;
     var panBoundary = 20; // Within 20px from edges will pan when dragging.
     // Misc. variables
     var i = 0;
-    var duration = 750;
+    // 0 is instant, value probably in ms
+    var animationDuration = 200;
     var root;
+
+    // Layout options
+    // Radius of circles, in pixels
+
+    var circleRadius=10;
+    var showFields=true;
+    var pixelPerLine=50;
+    var textDistance=circleRadius+5;
+    var mouseOverRadius=30
+    var mouseOverOpacity=1;
 
     // size of the diagram
     var viewerWidth = $(document).width();
@@ -142,7 +154,7 @@ treeJSON = d3.json("flare.json", function(error, treeData) {
                     return 1;
                 } else {    // a is the hovered element, bring "a" to the front
                     return -1;
-                } 
+                }
         });
         // if nodes has children, remove the links and nodes
         if (nodes.length > 1) {
@@ -187,7 +199,7 @@ treeJSON = d3.json("flare.json", function(error, treeData) {
     // Define the drag listeners for drag/drop behaviour of nodes.
     dragListener = d3.behavior.drag()
         .on("dragstart", function(d) {
-            if (d == root) {
+            if ((d == root) || (dragEnabled == false)){
                 return;
             }
             dragStarted = true;
@@ -199,7 +211,7 @@ treeJSON = d3.json("flare.json", function(error, treeData) {
             //d3.select(this).attr('pointer-events', 'none');
         })
         .on("drag", function(d) {
-            if (d == root) {
+            if ((d == root) || (dragEnabled == false)) {
                 return;
             }
             if (dragStarted) {
@@ -207,7 +219,7 @@ treeJSON = d3.json("flare.json", function(error, treeData) {
                 initiateDrag(d, domNode);
             }
 
-            // get coords of mouseEvent relative to svg container to allow for 
+            // get coords of mouseEvent relative to svg container to allow for
             // panning
             relCoords = d3.mouse($('svg').get(0));
             if (relCoords[0] < panBoundary) {
@@ -347,7 +359,7 @@ treeJSON = d3.json("flare.json", function(error, treeData) {
         x = x * scale + viewerWidth / 2;
         y = y * scale + viewerHeight / 2;
         d3.select('g').transition()
-            .duration(duration)
+            .duration(animationDuration)
             .attr("transform", "translate(" + x + "," + y + ")scale(" + scale + ")");
         zoomListener.scale(scale);
         zoomListener.translate([x, y]);
@@ -394,7 +406,7 @@ treeJSON = d3.json("flare.json", function(error, treeData) {
             }
         };
         childCount(0, root);
-        var newHeight = d3.max(levelWidth) * 25; // 25 pixels per line  
+        var newHeight = d3.max(levelWidth) * pixelPerLine; // 25 pixels per line
         tree = tree.size([newHeight, viewerWidth]);
 
         // Compute the new tree layout.
@@ -434,7 +446,7 @@ treeJSON = d3.json("flare.json", function(error, treeData) {
 
         nodeEnter.append("text")
             .attr("x", function(d) {
-                return d.children || d._children ? -10 : 10;
+                return d.children || d._children ? ((-1)*textDistance) : textDistance;
             })
             .attr("dy", ".35em")
             .attr('class', 'nodeText')
@@ -443,13 +455,14 @@ treeJSON = d3.json("flare.json", function(error, treeData) {
             })
             .text(function(d) {
                 return d.name;
+
             })
             .style("fill-opacity", 0);
 
         // phantom node to give us mouseover in a radius around it
         nodeEnter.append("circle")
             .attr('class', 'ghostCircle')
-            .attr("r", 30)
+            .attr("r", mouseOverRadius)
             .attr("opacity", 0.2) // change this to zero to hide the target area
         .style("fill", "green")
             .attr('pointer-events', 'mouseover')
@@ -463,26 +476,33 @@ treeJSON = d3.json("flare.json", function(error, treeData) {
         // Update the text to reflect whether node has children or not.
         node.select('text')
             .attr("x", function(d) {
-                return d.children || d._children ? -10 : 10;
+                return d.children || d._children ? ((-1)*textDistance) : textDistance;
             })
             .attr("text-anchor", function(d) {
                 return d.children || d._children ? "end" : "start";
             })
             .text(function(d) {
-                return d.name;
-p            });
 
-        // Change the circle fill depending on whether it has children and is 
+          //    for (const [key, value] of) {
+          //  console.log(key, value);
+          //    }
+              var retVal;
+              retVal = d.name;
+              return retVal
+
+            });
+
+        // Change the circle fill depending on whether it has children and is
         // collapsed
         node.select("circle.nodeCircle")
-            .attr("r", 4.5)
+            .attr("r", circleRadius)
             .style("fill", function(d) {
                 return d._children ? "lightsteelblue" : "#fff";
             }).on("mouseover", function (d) { console.log("mouseover happened"); });
 
         // Transition nodes to their new position.
         var nodeUpdate = node.transition()
-            .duration(duration)
+            .duration(animationDuration)
             .attr("transform", function(d) {
                 return "translate(" + d.y + "," + d.x + ")";
             });
@@ -493,7 +513,7 @@ p            });
 
         // Transition exiting nodes to the parent's new position.
         var nodeExit = node.exit().transition()
-            .duration(duration)
+            .duration(animationDuration)
             .attr("transform", function(d) {
                 return "translate(" + source.y + "," + source.x + ")";
             })
@@ -527,12 +547,12 @@ p            });
 
         // Transition links to their new position.
         link.transition()
-            .duration(duration)
+            .duration(animationDuration)
             .attr("d", diagonal);
 
         // Transition exiting nodes to the parent's new position.
         link.exit().transition()
-            .duration(duration)
+            .duration(animationDuration)
             .attr("d", function(d) {
                 var o = {
                     x: source.x,
@@ -552,14 +572,14 @@ p            });
         });
     }
 
-    // Append a group which holds all nodes and which the zoom Listener can act 
+    // Append a group which holds all nodes and which the zoom Listener can act
     // upon.
     var svgGroup = baseSvg.append("g");
 
     // Define the root
     root = treeData;
     root.x0 = viewerHeight / 2;
-    root.y0 = 0;
+    root.y0 = viewerWidth / 2;
 
     // Layout the tree initially and center on the root node.
     update(root);
